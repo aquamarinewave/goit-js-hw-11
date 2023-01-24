@@ -11,20 +11,21 @@
 // safesearch - фільтр за віком. Постав значення true.
 
 import Notiflix from 'notiflix';
-import axios from "axios";
 // Описаний в документації
 import SimpleLightbox from "simplelightbox";
 // Додатковий імпорт стилів
 import "simplelightbox/dist/simple-lightbox.min.css";
+import renderGallery from './js/render-gallery';
+import getApi from './js/show-results';
 
-const input = document.querySelector('[name=searchQuery]');
-const searchButton = document.querySelector('.search-form > button');
 const gallery = document.querySelector('.gallery');
+const input = document.querySelector('[name=searchQuery]');
+const form = document.querySelector('.search-form');
 const loadMoreButton = document.querySelector('.load-more');
-let page = 1;
-const per_page = 40;
 
-searchButton.addEventListener('click', showResults);
+let page = 1;
+
+form.addEventListener('submit', showResults);
 
 loadMoreButton.addEventListener('click', loadMore);
 
@@ -35,59 +36,21 @@ async function showResults(event) {
         Notiflix.Notify.warning('Write something in the input field');
         return
     }
+    page = 1;
+    loadMoreButton.hidden = true;
+    gallery.innerHTML = '';
     getApi(inputValue, page)
         .then(images => {
             const totalHits = images.totalHits;
+            if (page < Math.ceil(totalHits / 40)) {
+                loadMoreButton.hidden = false;
+            }
             Notiflix.Notify.success(`Hooray! We found ${totalHits} images.`);
             renderGallery(images);
-            loadMoreButton.hidden = false;
         })
         .catch(error => {
             console.log(error.message)
         }) 
-}
-
-async function getApi(text, page = 1) {
-    const baseUrl = "https://pixabay.com/api/";
-    const GLOBAL_KEY = "33017340-1f495014f3d6cee1ab5507ad9&q"
-
-    const response = await axios.get(`${baseUrl}?key=${GLOBAL_KEY}=${text}&image_type=photo&orientation=horizontal&safesearch=true&page=${page}&per_page=${per_page}`);
-
-    if (response.data.hits.length === 0) {
-        Notiflix.Notify.warning('Sorry, there are no images matching your search query. Please try again.');
-        return
-    }
-
-    return await response.data;
-}
-
-function renderGallery(data) {
-    const markup = data.hits.map(({ webformatURL, largeImageURL, tags, likes, views, comments, downloads }) =>
-                `<a class="gallery__item" href="${largeImageURL}">
-                    <div class="photo-card">
-                        <img src="${webformatURL}" alt="${tags}" loading="lazy" />
-                        <div class="info">
-                            <p class="info-item">
-                                <b>Likes</b>
-                                ${likes}
-                            </p>
-                            <p class="info-item">
-                                <b>Views</b>
-                                ${views}
-                            </p>
-                            <p class="info-item">
-                                <b>Comments</b>
-                                ${comments}
-                            </p>
-                            <p class="info-item">
-                                <b>Downloads</b>
-                                ${downloads}
-                            </p>
-                        </div>
-                    </div>
-                </a>`
-            ).join('');
-            gallery.insertAdjacentHTML('beforeend', markup);
 }
 
 function loadMore() {
@@ -96,11 +59,10 @@ function loadMore() {
 
     getApi(inputValue, page)
         .then(data => {
-            const totalPages = data.totalHits / per_page;
+            const totalPages = Math.ceil(data.totalHits / 40);
             if (page >= totalPages) {
                 Notiflix.Notify.warning("We're sorry, but you've reached the end of search results.");
                 loadMoreButton.hidden = true;
-                return
             } 
             renderGallery(data);
         })
